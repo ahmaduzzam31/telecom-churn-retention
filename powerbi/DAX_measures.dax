@@ -1,0 +1,48 @@
+// ============================================================
+// Telecom Churn - Power BI measures
+// Model: customers (dim) 1-* billing, subscriptions, churn (1:1 on customer_id)
+// Create a "Measures" table and paste each measure below.
+// ============================================================
+
+Total Customers = DISTINCTCOUNT ( customers[customer_id] )
+
+Churned Customers = CALCULATE ( [Total Customers], churn[churned] = 1 )
+
+Active Customers = [Total Customers] - [Churned Customers]
+
+Churn Rate % = DIVIDE ( [Churned Customers], [Total Customers] )
+
+MRR = SUM ( billing[monthly_charges] )
+
+MRR Lost = CALCULATE ( [MRR], churn[churned] = 1 )
+
+MRR Lost % = DIVIDE ( [MRR Lost], [MRR] )
+
+ARPU = DIVIDE ( [MRR], [Total Customers] )
+
+Avg Tenure (months) = AVERAGE ( customers[tenure_months] )
+
+// Churn rate versus the overall average, regardless of slicers on the current visual's dimension
+Churn vs Avg (pp) =
+VAR overall = CALCULATE ( [Churn Rate %], ALL ( customers ), ALL ( billing ), ALL ( subscriptions ) )
+RETURN ( [Churn Rate %] - overall ) * 100
+
+// Annualised revenue at risk from customers still active but in the high-risk profile
+Revenue at Risk (12m) =
+CALCULATE (
+    [MRR] * 12,
+    churn[churned] = 0,
+    billing[contract] = "Month-to-month",
+    customers[tenure_months] < 12,
+    subscriptions[tech_support] = "No"
+)
+
+// Share of customers on automatic payment (target KPI for the billing team)
+Auto-pay Share % =
+DIVIDE (
+    CALCULATE ( [Total Customers], CONTAINSSTRING ( billing[payment_method], "automatic" ) ),
+    [Total Customers]
+)
+
+// Conditional colour for churn visuals: red above 40%, blue otherwise
+Churn Colour = IF ( [Churn Rate %] > 0.40, "#d03b3b", "#2a78d6" )
